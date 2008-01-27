@@ -14,7 +14,7 @@ import ev;
 
 extern (C)
 {
-	static void stdin_cb (ev_loop_t* loop, ev_io *w, int revents)
+	static void stdin_cb(ev_loop_t* loop, ev_io *w, int revents)
 	{
 		io.writefln("stdin ready");
 		char[] ln = io.readln();
