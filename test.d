@@ -34,7 +34,7 @@ void main()
 	ev_io    stdin_watcher;
 	ev_timer timeout_watcher;
 
-	ev_loop_t* loop = ev_default_loop();
+	auto loop = ev_default_loop();
 
 	/* initialise an io watcher, then start it */
 	ev_io_init(&stdin_watcher, &stdin_cb, /*STDIN_FILENO*/ 0, READ);
