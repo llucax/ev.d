@@ -528,4 +528,397 @@ ev_loop_t* ev_default_loop(uint flags = AUTO)
 	return ev_default_loop_ptr;
 }
 
+version (UnitTest):
+extern (D):
+import stdio = std.stdio;
+import stdlib = std.c.stdlib;
+import str = std.string;
+import unix = std.c.unix.unix;
+import proc = std.c.process;
+enum { SIGINT = 2 }
+const STAT_FILE = "/tmp/libev-stat-test-file";
+const TEST_TEXT = "hello";
+bool prepare_done = false;
+bool check_done = false;
+bool idle_done = false;
+bool timer_done = false;
+bool io_done = false;
+bool stat_done = false;
+bool child_done = false;
+bool signal_done = false;
+bool eio_done = false;
+int child_pid = -1;
+unittest
+{
+	stdio.writefln("Unittesting...");
+	extern (C) static void cbprepare(ev_loop_t* loop, ev_prepare* w, int revents)
+	{
+		stdio.writefln("ev_prepare");
+		assert (!prepare_done);
+		assert (!check_done);
+		assert (!idle_done);
+		assert (!timer_done);
+		assert (!io_done);
+		assert (!stat_done);
+		assert (!child_done);
+		assert (!signal_done);
+		assert (!eio_done);
+		prepare_done = true;
+		ev_prepare_stop(loop, w);
+	}
+	extern (C) static void cbcheck(ev_loop_t* loop, ev_check* w, int revents)
+	{
+		stdio.writefln("ev_check");
+		assert (prepare_done);
+		assert (!check_done);
+		assert (!idle_done);
+		assert (!timer_done);
+		assert (!io_done);
+		assert (!stat_done);
+		assert (!child_done);
+		assert (!signal_done);
+		assert (!eio_done);
+		check_done = true;
+		ev_check_stop(loop, w);
+	}
+	extern (C) static void cbidle(ev_loop_t* loop, ev_idle* w, int revents)
+	{
+		stdio.writefln("ev_idle");
+		assert (prepare_done);
+		assert (check_done);
+		assert (!idle_done);
+		assert (!timer_done);
+		assert (!io_done);
+		assert (!stat_done);
+		assert (!child_done);
+		assert (!signal_done);
+		assert (!eio_done);
+		idle_done = true;
+		ev_idle_stop(loop, w);
+	}
+	extern (C) static void cbtimer(ev_loop_t* loop, ev_timer* w,
+			int revents)
+	{
+		stdio.writefln("ev_timer");
+		assert (prepare_done);
+		assert (check_done);
+		assert (idle_done);
+		assert (!timer_done);
+		assert (!io_done);
+		assert (!stat_done);
+		assert (!child_done);
+		assert (!signal_done);
+		assert (!eio_done);
+		timer_done = true;
+		ev_timer_stop(loop, w);
+		stdio.writefln("\tfiring ev_io");
+		stdio.writefln("\t\topening pipe for writing...");
+		int pipe_fd = *cast (int*) w.data;
+		stdio.writefln("\t\twriting '%s' to pipe...", TEST_TEXT);
+		int n = unix.write(pipe_fd, cast (void*) TEST_TEXT,
+				TEST_TEXT.length);
+		assert (n == TEST_TEXT.length);
+	}
+	extern (C) static void cbio(ev_loop_t* loop, ev_io* w, int revents)
+	{
+		stdio.writefln("ev_io");
+		assert (prepare_done);
+		assert (check_done);
+		assert (idle_done);
+		assert (timer_done);
+		assert (!io_done);
+		assert (!stat_done);
+		assert (!child_done);
+		assert (!signal_done);
+		assert (!eio_done);
+		io_done = true;
+		ev_io_stop(loop, w);
+		char[TEST_TEXT.length] buffer;
+		stdio.writefln("\treading %d bytes from pipe...",
+				buffer.length);
+		int n = unix.read(w.fd, cast (void*) buffer, buffer.length);
+		assert (n == TEST_TEXT.length);
+		assert (buffer.dup == TEST_TEXT.dup);
+		stdio.writefln("\tread '%s'", buffer);
+		stdio.writefln("\tfiring ev_stat");
+		stdio.writefln("\t\topening file '%s'", STAT_FILE);
+		int fd = unix.open(str.toStringz(STAT_FILE),
+				unix.O_WRONLY | unix.O_TRUNC | unix.O_CREAT);
+		assert (fd != -1);
+		stdio.writefln("\t\tfd: %d", fd);
+		n = unix.write(fd, cast (void*) TEST_TEXT,
+				TEST_TEXT.length);
+		assert (n == TEST_TEXT.length);
+		unix.close(fd);
+	}
+	extern (C) static void cbstat(ev_loop_t* loop, ev_stat* w, int revents)
+	{
+		stdio.writefln("ev_stat");
+		assert (prepare_done);
+		assert (check_done);
+		assert (idle_done);
+		assert (timer_done);
+		assert (io_done);
+		assert (!stat_done);
+		assert (!child_done);
+		assert (!signal_done);
+		assert (!eio_done);
+		stat_done = true;
+		ev_stat_stop(loop, w);
+		static void print_stat(ev_statdata* s)
+		{
+			stdio.writefln("\t\t\tinode: ", s.st_ino);
+			stdio.writefln("\t\t\tmode: ", s.st_mode);
+			stdio.writefln("\t\t\tlinks: ", s.st_nlink);
+			stdio.writefln("\t\t\tuid: ", s.st_uid);
+			stdio.writefln("\t\t\tgid: ", s.st_gid);
+			stdio.writefln("\t\t\tsize: ", s.st_size);
+			stdio.writefln("\t\t\tatime: ", s.st_atime);
+			stdio.writefln("\t\t\tmtime: ", s.st_mtime);
+			stdio.writefln("\t\t\tctime: ", s.st_ctime);
+		}
+		if (w.attr.st_nlink)
+		{
+			stdio.writefln("\tfile '%s' changed", str.toString(w.path));
+			stdio.writefln("\t\tprevios state:");
+			print_stat(&w.prev);
+			stdio.writefln("\t\tcurrent state:");
+			print_stat(&w.attr);
+		}
+		else
+		{
+			stdio.writefln("\tfile '%s' does not exist!",
+					str.toString(w.path));
+			stdio.writefln("\t\tprevios state:");
+			print_stat(&w.prev);
+		}
+		stdio.writefln("\tfiring ev_fork...");
+		stdio.writefln("\t\tforking...");
+		auto pid = unix.fork();
+		assert (pid != -1);
+		if (pid)
+		{
+			child_pid = pid;
+			stdio.writefln("\t\tev_stat: in parent, child pid: ", pid);
+		}
+		else
+		{
+			stdio.writefln("\t\tev_stat: in child, calling "
+					"ev_default_fork...");
+			ev_default_fork();
+		}
+	}
+	extern (C) static void cbchild(ev_loop_t* loop, ev_child* w, int revents)
+	{
+		stdio.writefln("ev_child");
+		assert (prepare_done);
+		assert (check_done);
+		assert (idle_done);
+		assert (timer_done);
+		assert (io_done);
+		assert (stat_done);
+		assert (!child_done);
+		assert (!signal_done);
+		assert (!eio_done);
+		child_done = true;
+		ev_child_stop(loop, w);
+		static ubyte WEXITSTATUS(int s)
+		{
+			return cast(ubyte)((s & 0xff00) >> 8);
+		}
+		static ubyte WTERMSIG(int s)
+		{
+			return cast(ubyte)(s & 0x7f);
+		}
+		static bool WIFEXITED(int s)
+		{
+			return WTERMSIG(s) == 0;
+		}
+		static bool WIFSIGNALED(int s)
+		{
+			return cast(byte)(((s & 0x7f) + 1) >> 1) > 0;
+		}
+		static bool WCOREDUMP(int s)
+		{
+			return cast(bool)(s & 0x80);
+		}
+		stdio.writefln("\tthe child with pid %d exited with status "
+				"%d", w.rpid, w.rstatus);
+		assert (child_pid == w.rpid);
+		if (WIFEXITED(w.rstatus))
+			stdio.writefln("\tchild exited normally with code ",
+					WEXITSTATUS(w.rstatus));
+		if (WIFSIGNALED(w.rstatus))
+		{
+			stdio.writefln("\tchild exited with signal ",
+					WTERMSIG(w.rstatus));
+			if (WCOREDUMP(w.rstatus))
+				stdio.writefln("\tchild produced a core dump");
+		}
+		assert (WIFEXITED(w.rstatus) && WEXITSTATUS(w.rstatus) == 5);
+		stdio.writefln("\tfiring ev_signal");
+		stdio.writefln("\t\tsending signal 2 (SIGINT)");
+		unix.kill(proc.getpid(), SIGINT);
+	}
+	extern (C) static void cbfork(ev_loop_t* loop, ev_fork* w, int revents)
+	{
+		stdio.writefln("ev_fork");
+		assert (prepare_done);
+		assert (check_done);
+		assert (idle_done);
+		assert (timer_done);
+		assert (io_done);
+		assert (stat_done);
+		assert (!child_done);
+		assert (!signal_done);
+		assert (!eio_done);
+		ev_fork_stop(loop, w);
+		stdio.writefln("\texiting the child program with return "
+				"code 5");
+		stdlib.exit(5);
+	}
+	extern (C) static void cbsignal(ev_loop_t* loop, ev_signal* w,
+			int revents)
+	{
+		stdio.writefln("ev_signal");
+		assert (prepare_done);
+		assert (check_done);
+		assert (idle_done);
+		assert (timer_done);
+		assert (io_done);
+		assert (stat_done);
+		assert (child_done);
+		assert (!signal_done);
+		assert (!eio_done);
+		signal_done = true;
+		ev_signal_stop(loop, w);
+		stdio.writefln("\tfiring embeded ev_io...");
+		stdio.writefln("\t\topening pipe for writing...");
+		int pipe_fd = *cast(int*)w.data;
+		stdio.writefln("\t\twriting '%s' to pipe...", TEST_TEXT);
+		int n = unix.write(pipe_fd, cast(void*)TEST_TEXT,
+				TEST_TEXT.length);
+		assert (n == TEST_TEXT.length);
+	}
+	extern (C) static void ecbio(ev_loop_t* loop, ev_io* w, int revents)
+	{
+		stdio.writefln("embeded ev_io");
+		assert (prepare_done);
+		assert (check_done);
+		assert (idle_done);
+		assert (timer_done);
+		assert (io_done);
+		assert (stat_done);
+		assert (child_done);
+		assert (signal_done);
+		assert (!eio_done);
+		eio_done = true;
+		//ev_io_stop(loop, w);
+		char[TEST_TEXT.length] buffer;
+		stdio.writefln("\treading %d bytes from pipe...",
+				buffer.length);
+		int n = unix.read(w.fd, cast (void*) buffer, buffer.length);
+		assert (n == TEST_TEXT.length);
+		assert (buffer.dup == TEST_TEXT.dup);
+		stdio.writefln("\tread '%s'", buffer);
+		stdio.writefln("\tstoping the loop");
+		ev_unloop(loop, how.ONE);
+	}
+	extern (C) static void cbembed(ev_loop_t* loop, ev_embed* w, int revents)
+	{
+		stdio.writefln("ev_embed");
+		stdio.writefln("\tsweeping embeded loop...");
+		ev_embed_sweep(w.other, w);
+		//ev_embed_stop(loop, w);
+	}
+
+	auto loop = ev_default_loop(0);
+
+	ev_io wio;
+	ev_io ewio;
+	ev_timer wtimer;
+	ev_signal wsignal;
+	ev_child wchild;
+	ev_stat wstat;
+	ev_idle widle;
+	ev_prepare wprepare;
+	ev_check wcheck;
+	ev_fork wfork;
+	ev_embed wembed;
+
+	ev_loop_t* eloop = ev_embeddable_backends() & ev_recommended_backends()
+		? ev_loop_new(ev_embeddable_backends () &
+				ev_recommended_backends ())
+		: null;
+
+	if (eloop)
+	{
+		stdio.writefln("Initializing embeded loop");
+		ev_embed_init(&wembed, &cbembed, eloop);
+		ev_embed_start(loop, &wembed);
+	}
+	else
+	{
+		stdio.writefln("No embeded loop, using the default");
+		eloop = loop;
+	}
+
+	int[2] epipe;
+	{
+		int ret = unix.pipe(epipe);
+		assert (ret == 0);
+	}
+	ev_io_init(&ewio, &ecbio, epipe[0], READ);
+	ev_io_start(eloop, &ewio);
+
+	int[2] pipe;
+	{
+		int ret = unix.pipe(pipe);
+		assert (ret == 0);
+	}
+
+	ev_io_init(&wio, &cbio, pipe[0], READ);
+	ev_io_start(loop, &wio);
+
+	ev_timer_init(&wtimer, &cbtimer, 1.5, 0.);
+	wtimer.data = &pipe[1]; // write fd
+	ev_timer_start(loop, &wtimer);
+
+	ev_signal_init(&wsignal, &cbsignal, SIGINT);
+	wsignal.data = &epipe[1]; // write fd
+	ev_signal_start(loop, &wsignal);
+
+	ev_child_init(&wchild, &cbchild, 0 /* trace any PID */);
+	ev_child_start(loop, &wchild);
+
+	ev_stat_init(&wstat, &cbstat, str.toStringz(STAT_FILE), 0 /* auto */);
+	ev_stat_start(loop, &wstat);
+
+	ev_idle_init(&widle, &cbidle);
+	ev_idle_start(loop, &widle);
+
+	ev_prepare_init(&wprepare, &cbprepare);
+	ev_prepare_start(loop, &wprepare);
+
+	ev_check_init(&wcheck, &cbcheck);
+	ev_check_start(loop, &wcheck);
+
+	ev_fork_init(&wfork, &cbfork);
+	ev_fork_start(loop, &wfork);
+
+	ev_loop(loop, 0);
+
+	assert (prepare_done);
+	assert (check_done);
+	assert (idle_done);
+	assert (timer_done);
+	assert (io_done);
+	assert (stat_done);
+	assert (child_done);
+	assert (signal_done);
+	assert (eio_done);
+
+	stdio.writefln("Unittesting done!");
+
+}
 
