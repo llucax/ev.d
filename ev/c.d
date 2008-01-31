@@ -11,59 +11,58 @@
 
 module ev.c;
 
+extern (C):
+align (4):
+
 enum: uint
 {
-	UNDEF    = 0xFFFFFFFFL, // guaranteed to be invalid
-	NONE     =       0x00L, // no events
-	READ     =       0x01L, // ev_io detected read will not block
-	WRITE    =       0x02L, // ev_io detected write will not block
-	IOFDSET  =       0x80L, // internal use only
-	TIMEOUT  = 0x00000100L, // timer timed out
-	PERIODIC = 0x00000200L, // periodic timer timed out
-	SIGNAL   = 0x00000400L, // signal was received
-	CHILD    = 0x00000800L, // child/pid had status change
-	STAT     = 0x00001000L, // stat data changed
-	IDLE     = 0x00002000L, // event loop is idling
-	PREPARE  = 0x00004000L, // event loop about to poll
-	CHECK    = 0x00008000L, // event loop finished poll
-	EMBED    = 0x00010000L, // embedded event loop needs sweep
-	FORK     = 0x00020000L, // event loop resumed in child
-	ERROR    = 0x80000000L, // sent when an error occurs
+	EV_UNDEF    = 0xFFFFFFFFL, // guaranteed to be invalid
+	EV_NONE     =       0x00L, // no events
+	EV_READ     =       0x01L, // ev_io detected read will not block
+	EV_WRITE    =       0x02L, // ev_io detected write will not block
+	EV_IOFDSET  =       0x80L, // internal use only
+	EV_TIMEOUT  = 0x00000100L, // timer timed out
+	EV_PERIODIC = 0x00000200L, // periodic timer timed out
+	EV_SIGNAL   = 0x00000400L, // signal was received
+	EV_CHILD    = 0x00000800L, // child/pid had status change
+	EV_STAT     = 0x00001000L, // stat data changed
+	EV_IDLE     = 0x00002000L, // event loop is idling
+	EV_PREPARE  = 0x00004000L, // event loop about to poll
+	EV_CHECK    = 0x00008000L, // event loop finished poll
+	EV_EMBED    = 0x00010000L, // embedded event loop needs sweep
+	EV_FORK     = 0x00020000L, // event loop resumed in child
+	EV_ERROR    = 0x80000000L, // sent when an error occurs
 }
 
 enum: uint
 {
 	// bits for ev_default_loop and ev_loop_new
 	// the default
-	AUTO       = 0x00000000UL, // not quite a mask
+	EVFLAG_AUTO       = 0x00000000UL, // not quite a mask
 	// flag bits
-	NOENV      = 0x01000000UL, // do NOT consult environment
-	FORKCHECK  = 0x02000000UL, // check for a fork in each iteration
+	EVFLAG_NOENV      = 0x01000000UL, // do NOT consult environment
+	EVFLAG_FORKCHECK  = 0x02000000UL, // check for a fork in each iteration
 	// method bits to be ored together
-	SELECT     = 0x00000001UL, // about anywhere
-	POLL       = 0x00000002UL, // !win
-	EPOLL      = 0x00000004UL, // linux
-	KQUEUE     = 0x00000008UL, // bsd
-	DEVPOLL    = 0x00000010UL, // solaris 8 / NYI
-	PORT       = 0x00000020UL, // solaris 10
+	EVBACKEND_SELECT  = 0x00000001UL, // about anywhere
+	EVBACKEND_POLL    = 0x00000002UL, // !win
+	EVBACKEND_EPOLL   = 0x00000004UL, // linux
+	EVBACKEND_KQUEUE  = 0x00000008UL, // bsd
+	EVBACKEND_DEVPOLL = 0x00000010UL, // solaris 8 / NYI
+	EVBACKEND_PORT    = 0x00000020UL, // solaris 10
 }
 
 enum
 {
-	NONBLOCK = 1, // do not block/wait
-	ONESHOT  = 2, // block *once* only
+	EVLOOP_NONBLOCK = 1, // do not block/wait
+	EVLOOP_ONESHOT  = 2, // block *once* only
 }
 
-enum how
+enum
 {
-	CANCEL = 0, // undo unloop
-	ONE    = 1, // unloop once
-	ALL    = 2, // unloop all loops
+	EVUNLOOP_CANCEL = 0, // undo unloop
+	EVUNLOOP_ONE    = 1, // unloop once
+	EVUNLOOP_ALL    = 2, // unloop all loops
 }
-
-
-extern (C):
-align (4):
 
 version (EV_ENABLE_SELECT)
 {
@@ -279,7 +278,7 @@ void ev_default_fork();
 uint ev_backend(ev_loop_t*);
 uint ev_loop_count(ev_loop_t*);
 void ev_loop(ev_loop_t*, int flags);
-void ev_unloop(ev_loop_t*, how);
+void ev_unloop(ev_loop_t*, int);
 void ev_set_io_collect_interval(ev_loop_t*, ev_tstamp interval);
 void ev_set_timeout_collect_interval(ev_loop_t*, ev_tstamp interval);
 void ev_ref(ev_loop_t*);
@@ -390,7 +389,7 @@ void ev_init(TYPE)(TYPE* w,
 void ev_io_set(ev_io* w, int fd, int events)
 {
 	w.fd = fd;
-	w.events = events | IOFDSET;
+	w.events = events | EV_IOFDSET;
 }
 
 void ev_timer_set(ev_timer* w, ev_tstamp after, ev_tstamp repeat)
@@ -521,7 +520,7 @@ void ev_fork_init(ev_fork* w, void function(ev_loop_t*, ev_fork*, int) cb)
 	ev_fork_set(w);
 }
 
-ev_loop_t* ev_default_loop(uint flags = AUTO)
+ev_loop_t* ev_default_loop(uint flags = EVFLAG_AUTO)
 {
 	if (!ev_default_loop_ptr)
 		ev_default_loop_init(flags);
@@ -822,7 +821,7 @@ unittest
 		assert (buffer.dup == TEST_TEXT.dup);
 		stdio.writefln("\tread '%s'", buffer);
 		stdio.writefln("\tstoping the loop");
-		ev_unloop(loop, how.ONE);
+		ev_unloop(loop, EVUNLOOP_ONE);
 	}
 	extern (C) static void cbembed(ev_loop_t* loop, ev_embed* w, int revents)
 	{
@@ -868,7 +867,7 @@ unittest
 		int ret = unix.pipe(epipe);
 		assert (ret == 0);
 	}
-	ev_io_init(&ewio, &ecbio, epipe[0], READ);
+	ev_io_init(&ewio, &ecbio, epipe[0], EV_READ);
 	ev_io_start(eloop, &ewio);
 
 	int[2] pipe;
@@ -877,7 +876,7 @@ unittest
 		assert (ret == 0);
 	}
 
-	ev_io_init(&wio, &cbio, pipe[0], READ);
+	ev_io_init(&wio, &cbio, pipe[0], EV_READ);
 	ev_io_start(loop, &wio);
 
 	ev_timer_init(&wtimer, &cbtimer, 1.5, 0.);

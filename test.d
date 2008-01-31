@@ -20,12 +20,12 @@ extern (C)
 		char[] ln = io.readln();
 		io.writef("read %d bytes: %s", ln.length, ln);
 		ev_io_stop(loop, w); // just a syntax example
-		ev_unloop(loop, how.ALL); // leave all loop calls
+		ev_unloop(loop, EVUNLOOP_ALL); // leave all loop calls
 	}
 	static void timeout_cb(ev_loop_t* loop, ev_timer *w, int revents)
 	{
 		io.writefln("timeout");
-		ev_unloop(loop, how.ONE); // leave one loop call
+		ev_unloop(loop, EVUNLOOP_ONE); // leave one loop call
 	}
 }
 
@@ -37,7 +37,7 @@ void main()
 	auto loop = ev_default_loop();
 
 	/* initialise an io watcher, then start it */
-	ev_io_init(&stdin_watcher, &stdin_cb, /*STDIN_FILENO*/ 0, READ);
+	ev_io_init(&stdin_watcher, &stdin_cb, /*STDIN_FILENO*/ 0, EV_READ);
 	ev_io_start(loop, &stdin_watcher);
 
 	/* simple non-repeating 5.5 second timeout */
