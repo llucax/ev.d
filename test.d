@@ -10,7 +10,7 @@
  +/
 
 import io = std.stdio;
-import ev;
+import ev.c;
 
 extern (C)
 {

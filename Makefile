@@ -11,17 +11,17 @@ DFLAGS += -ggdb
 
 all: test
 
-test.o: test.d ev.d
+test.o: test.d ev/c.d
 	gdc -c $(DFLAGS) test.d
 
-ev.o: ev.d
-	gdc -c $(DFLAGS) ev.d
+ev/c.o: ev/c.d
+	gdc -c -o ev/c.o $(DFLAGS) ev/c.d
 
-test: test.o ev.o
-	gdc -o test -lev $(DFLAGS) test.o ev.o
+test: test.o ev/c.o
+	gdc -o test -lev $(DFLAGS) test.o ev/c.o
 
 clean:
-	$(RM) -v *.o test
+	$(RM) -v *.o ev/*.o test
 
 .PHONY: clean all
 

@@ -9,7 +9,7 @@
  +
  +/
 
-module ev;
+module ev.c;
 
 enum: uint
 {
