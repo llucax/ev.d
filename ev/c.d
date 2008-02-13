@@ -348,17 +348,17 @@ version (EV_EMBED_ENABLE)
 
 bool ev_is_pending(TYPE)(TYPE* w)
 {
-	return w.pending;
+	return cast (bool) w.pending;
 }
 
 bool ev_is_active(TYPE)(TYPE* w)
 {
-	return w.active;
+	return cast (bool) w.active;
 }
 
 int ev_priority(TYPE)(TYPE* w)
 {
-	return w.priority;
+	return cast (bool) w.priority;
 }
 
 void function(ev_loop_t*, TYPE*, int) ev_cb(TYPE)(TYPE* w)
