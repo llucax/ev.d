@@ -160,6 +160,7 @@ struct ev_signal
 struct ev_child
 {
 	mixin EV_WATCHER_LIST!(ev_child);
+	int flags;   // private
 	int pid;     // ro
 	int rpid;    // rw, holds the received pid
 	int rstatus; // rw, holds the exit status, use the
@@ -411,9 +412,10 @@ void ev_signal_set(ev_signal* w, int signum)
 	w.signum = signum;
 }
 
-void ev_child_set(ev_child* w, int pid)
+void ev_child_set(ev_child* w, int pid, int trace)
 {
 	w.pid = pid;
+	w.flags = !!trace;
 }
 
 void ev_stat_set(ev_stat* w, char* path, ev_tstamp interval)
@@ -475,10 +477,10 @@ void ev_signal_init(ev_signal* w, void function(ev_loop_t*, ev_signal*, int) cb,
 }
 
 void ev_child_init(ev_child* w, void function(ev_loop_t*, ev_child*, int) cb,
-		int pid)
+		int pid, int trace)
 {
 	ev_init(w, cb);
-	ev_child_set(w, pid);
+	ev_child_set(w, pid, trace);
 }
 
 void ev_stat_init(ev_stat* w, void function(ev_loop_t*, ev_stat*, int) cb,
@@ -887,7 +889,7 @@ unittest
 	wsignal.data = &epipe[1]; // write fd
 	ev_signal_start(loop, &wsignal);
 
-	ev_child_init(&wchild, &cbchild, 0 /* trace any PID */);
+	ev_child_init(&wchild, &cbchild, 0 /* trace any PID */, 0 /* death */);
 	ev_child_start(loop, &wchild);
 
 	ev_stat_init(&wstat, &cbstat, str.toStringz(STAT_FILE), 0 /* auto */);
