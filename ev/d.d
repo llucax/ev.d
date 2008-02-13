@@ -213,53 +213,53 @@ template MLoop()
 
 	tstamp now()
 	{
-		return ev_now(_ptr);
+		return ev_now(ptr);
 	}
 
 	uint backend()
 	{
-		return ev_backend(_ptr);
+		return ev_backend(ptr);
 	}
 
 	uint count()
 	{
-		return ev_loop_count(_ptr);
+		return ev_loop_count(ptr);
 	}
 
 	void loop(int flags = 0)
 	{
-		ev_loop(_ptr, flags);
+		ev_loop(ptr, flags);
 	}
 
 	void unloop(Unloop how = Unloop.ONE)
 	{
-		ev_unloop(_ptr, how);
+		ev_unloop(ptr, how);
 	}
 
 	void ioCollectInterval(tstamp interval)
 	{
-		ev_set_io_collect_interval(_ptr, interval);
+		ev_set_io_collect_interval(ptr, interval);
 	}
 
 	void timeoutCollectInterval(tstamp interval)
 	{
-		ev_set_timeout_collect_interval(_ptr, interval);
+		ev_set_timeout_collect_interval(ptr, interval);
 	}
 
 	void addref()
 	{
-		ev_ref(_ptr);
+		ev_ref(ptr);
 	}
 
 	void unref()
 	{
-		ev_unref(_ptr);
+		ev_unref(ptr);
 	}
 
 	void once(int fd, int events, tstamp timeout,
 			once_callback_t cb, void* arg = null)
 	{
-		ev_once(_ptr, fd, events, timeout, cb, arg);
+		ev_once(ptr, fd, events, timeout, cb, arg);
 	}
 
 	void once(int fd, int events, tstamp timeout, OnceCallback cb)
@@ -283,12 +283,12 @@ template MLoop()
 
 	void feedFdEvent(int fd, int revents)
 	{
-		return ev_feed_fd_event(_ptr, fd, revents);
+		return ev_feed_fd_event(ptr, fd, revents);
 	}
 
 	void feedSignalEvent(int signum)
 	{
-		return ev_feed_signal_event(_ptr, signum);
+		return ev_feed_signal_event(ptr, signum);
 	}
 
 	private ev_loop_t* _ptr;
@@ -307,12 +307,12 @@ class Loop: ILoop
 
 	~this()
 	{
-		ev_loop_destroy(_ptr);
+		ev_loop_destroy(ptr);
 	}
 
 	void fork()
 	{
-		ev_loop_fork(_ptr);
+		ev_loop_fork(ptr);
 	}
 
 	unittest
