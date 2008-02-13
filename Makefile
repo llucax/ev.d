@@ -4,7 +4,7 @@ DFLAGS = -Wall
 DFLAGS += -ggdb
 
 # Unittest
-DFLAGS += -funittest -fversion=UnitTest
+#DFLAGS += -funittest -fversion=UnitTest
 
 # Release
 #DFLAGS += -frelease -O3
