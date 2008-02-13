@@ -261,7 +261,7 @@ void ev_set_allocator(void* function(void* ptr, int size));
 // set the callback function to call on a
 // retryable syscall error
 // (such as failed select, poll, epoll_wait)
-void ev_set_syserr_cb(void* function(char* msg));
+void ev_set_syserr_cb(void function(char* msg));
 
 extern ev_loop_t* ev_default_loop_ptr;
 
